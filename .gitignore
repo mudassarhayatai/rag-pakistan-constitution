@@ -1,0 +1,58 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+*.so
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+
+# Conda
+*.conda/
+
+# --- Local vector store (Qdrant's on-disk local mode, Section 4) ---
+# Large binary index files, fully regenerable via embed_and_index.py --
+# never worth committing.
+**/qdrant_local/
+
+# --- Raw source PDF ---
+
+data/raw/*.pdf
+!data/raw/.gitkeep
+
+# --- Model / embedding caches ---
+# In case HF_HOME or a similar cache dir ever gets pointed into the repo
+# instead of the default (~/.cache) location.
+.cache/
+*.gguf
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Jupyter (if you ever prototype in a notebook) ---
+.ipynb_checkpoints/
+
+# --- Testing / linting caches ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Logs ---
+*.log

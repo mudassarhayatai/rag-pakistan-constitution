@@ -1,0 +1,38 @@
+[
+ 
+ {
+    "id": "q1",
+    "category": "out_of_scope",
+    "question": "What does the Constitution say about cryptocurrency regulation?",
+    "ground_truth": "The provided context does not contain enough information to answer this question.",
+    "expected_articles": []
+  },
+  {
+    "id": "q2",
+    "category": "out_of_scope",
+    "question": "What minimum wage does Article 15 establish?",
+    "ground_truth": "The provided context does not contain enough information to answer this question.",
+    "expected_articles": []
+  },
+  {
+    "id": "q3",
+    "category": "direct_lookup",
+    "question": "Who must give consent before a Money Bill can be introduced in the Provincial Assembly?",
+    "ground_truth": "A Money Bill cannot be introduced or moved in the Provincial Assembly except by or with the consent of the Provincial Government.",
+    "expected_articles": ["115"]
+  },
+  {
+    "id": "q4",
+    "category": "numeric_procedural",
+    "question": "How many days does the Governor have to give assent to a Bill presented by the Provincial Assembly?",
+    "ground_truth": "The Governor must, within ten days, assent to the Bill or, in the case of a Bill other than a Money Bill, return it to the Provincial Assembly for reconsideration.",
+    "expected_articles": ["116"]
+  },
+  {
+    "id": "q5",
+    "category": "direct_lookup",
+    "question": "Who has the final decision on whether a Bill is a Money Bill or not?",
+    "ground_truth": "The decision of the Speaker of the Provincial Assembly is final on whether a Bill is a Money Bill or not.",
+    "expected_articles": ["115"]
+  }
+]

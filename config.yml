@@ -1,0 +1,13 @@
+chunks_path: data\processed\child_chunks.json
+parents_path: data\processed\parent_chunks.json
+qdrant_path: qdrant_local
+qdrant_url:
+collection: constitution_pk
+
+ollama_host: http://localhost:11434
+ollama_model: qwen3.5:0.8b
+
+candidate_k: 10
+top_k: 5
+
+api_base_url_default: http://localhost:8000
