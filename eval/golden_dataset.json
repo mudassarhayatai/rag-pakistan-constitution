@@ -1,18 +1,22 @@
 [
  
- {
+  {
     "id": "q1",
-    "category": "out_of_scope",
-    "question": "What does the Constitution say about cryptocurrency regulation?",
-    "ground_truth": "The provided context does not contain enough information to answer this question.",
-    "expected_articles": []
+    "category": "direct_lookup",
+    "question": "What does Article 9 of the Constitution guarantee?",
+    "ground_truth": "Article 9 guarantees security of person: no person shall be deprived of life or liberty save in accordance with law.",
+    "expected_articles": [
+      "9"
+    ]
   },
   {
     "id": "q2",
-    "category": "out_of_scope",
-    "question": "What minimum wage does Article 15 establish?",
-    "ground_truth": "The provided context does not contain enough information to answer this question.",
-    "expected_articles": []
+    "category": "direct_lookup",
+    "question": "What right does Article 9A establish?",
+    "ground_truth": "Article 9A establishes that every person shall be entitled to a clean, healthy and sustainable environment.",
+    "expected_articles": [
+      "9A"
+    ]
   },
   {
     "id": "q3",

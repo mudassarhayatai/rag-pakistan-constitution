@@ -15,10 +15,15 @@ tiers of signal:
 
 Every run is saved to eval/results/<run_name>_<timestamp>.json. That
 directory, with multiple named runs in it (baseline, with_reranking,
-with_hybrid, ...)
+with_hybrid, ...) showing the metrics trend upward, IS the single most
+convincing piece of evidence in this whole project -- more than any
+individual component's code.
 
 Usage:
-   python -m eval.eval
+    python run_eval.py --golden eval/golden_dataset.json --run-name baseline
+    python run_eval.py --golden eval/golden_dataset.json --run-name with_reranking
+
+Note: Ragas evaluation not working,due to model compatibility 
 """
 
 import argparse
@@ -32,6 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root -> 
 from src.retrieval.hybrid_search import HybridRetriever, EMBEDDING_MODEL_NAME
 from src.retrieval.reranker import CrossEncoderReranker
 from src.generation.generate import build_prompt, OllamaGenerator, check_citation_faithfulness
+
 
 
 def run_pipeline_on_question(question, retriever, reranker, generator, parents_by_id, candidate_k, top_k):
@@ -110,7 +116,7 @@ def summarize_cheap_checks(predictions: list[dict]) -> dict:
 
 def compute_ragas_metrics(predictions: list[dict]):
     """Returns RAGAS's standard metrics using the local Ollama model as
-    judge and BGE-M3 for embeddings -- or None (with can explanation
+    judge and BGE-M3 for embeddings -- or None (with an explanation
     printed) if ragas/langchain aren't installed, so the harness still
     produces the tier-1 summary either way."""
     try:
@@ -125,7 +131,7 @@ def compute_ragas_metrics(predictions: list[dict]):
         print(f"ragas/langchain not available ({e}) -- skipping RAGAS metrics, tier-1 summary only")
         return None
 
-    ragas_llm = LangchainLLMWrapper(ChatOllama(model="qwen3.5:0.8b"))
+    ragas_llm = LangchainLLMWrapper(ChatOllama(model="qwen3:8b"))
     ragas_embeddings = LangchainEmbeddingsWrapper(HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME))
 
     # context_recall needs a ground_truth; skip predictions that don't have one
@@ -151,17 +157,18 @@ def compute_ragas_metrics(predictions: list[dict]):
 def run(
     golden_path: str,
     run_name: str,
-    chunks_path: str ,
-    parents_path: str,
-    collection: str  ,
-    qdrant_path: str,
-    qdrant_url: str ,
-    bm25_only: bool ,
-    ollama_model: str ,
-    ollama_host: str ,
-    candidate_k: int ,
-    top_k: int,
-    compute_ragas: bool ,
+    chunks_path: str = "data/processed/child_chunks.json",
+    parents_path: str = "data/processed/parent_chunks.json",
+    collection: str = "constitution_pk",
+    qdrant_path: str = "qdrant_local",
+    qdrant_url: str | None = None,
+    bm25_only: bool = False,
+    rerank: bool = False,
+    ollama_model: str = "qwen3:8b",
+    ollama_host: str = "http://localhost:11434",
+    candidate_k: int = 10,
+    top_k: int = 5,
+    compute_ragas: bool = True,
 ) -> Path:
     with open(golden_path, encoding="utf-8") as f:
         golden = json.load(f)
@@ -189,10 +196,11 @@ def run(
     )
 
     reranker = None
-    try:
-        reranker = CrossEncoderReranker()
-    except ImportError as e:
-        print(f"Reranker unavailable ({e}) -- skipping rerank stage in eval")
+    if rerank:
+        try:
+            reranker = CrossEncoderReranker()
+        except ImportError as e:
+            print(f"Reranker unavailable ({e}) -- skipping rerank stage in eval")
 
     generator = OllamaGenerator(model=ollama_model, host=ollama_host)
 
@@ -223,26 +231,27 @@ def run(
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--golden", default="eval/golden_dataset.json")
+    parser.add_argument("--run-name", required=True, help="e.g. 'baseline', 'with_reranking' -- names this run for later comparison")
+    parser.add_argument("--chunks", default="data/processed/child_chunks.json")
+    parser.add_argument("--parents", default="data/processed/parent_chunks.json")
+    parser.add_argument("--collection", default="constitution_pk")
+    parser.add_argument("--qdrant-path", default="qdrant_local")
+    parser.add_argument("--qdrant-url", default=None)
+    parser.add_argument("--bm25-only", action="store_true")
+    parser.add_argument("--rerank",action="store_true",help="Enable CrossEncoder reranking")
+    parser.add_argument("--ollama-model", default="qwen3.5:0.8b")
+    parser.add_argument("--ollama-host", default="http://localhost:11434")
+    parser.add_argument("--candidate-k", type=int, default=10)
+    parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--no-ragas", action="store_true", help="Skip RAGAS even if installed (faster iteration)")
+    args = parser.parse_args()
 
     run(
-        golden_path=r"eval\golden_dataset.json",
-        run_name="baseline",
-
-        chunks_path=r"data\processed\child_chunks.json",
-        parents_path=r"data\processed\child_chunks.json",
-
-        collection="constitution_pk",
-
-        qdrant_path="qdrant_local",
-        qdrant_url=None,
-
-        bm25_only=False,
-
-        ollama_model="qwen3.5:0.8b",
-        ollama_host="http://localhost:11434",
-
-        candidate_k=10,
-        top_k=5,
-
-        compute_ragas=True,
+        golden_path=args.golden, run_name=args.run_name,
+        chunks_path=args.chunks, parents_path=args.parents,
+        collection=args.collection, qdrant_path=args.qdrant_path, qdrant_url=args.qdrant_url,
+        bm25_only=args.bm25_only,  rerank=args.rerank,ollama_model=args.ollama_model, ollama_host=args.ollama_host,
+        candidate_k=args.candidate_k, top_k=args.top_k, compute_ragas=not args.no_ragas,
     )

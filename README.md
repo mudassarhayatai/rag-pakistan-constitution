@@ -1,6 +1,6 @@
 # RAG System: Constitution of Pakistan
 
-A production-oriented Retrieval-Augmented Generation system for querying the Constitution of the Islamic Republic of Pakistan — fully open-source, citation-grounded, and built to say "I don't know" rather than guess on a legal document where a confident wrong answer is worse than no answer.
+A production-oriented Retrieval-Augmented Generation system for querying the Constitution of the Islamic Republic of Pakistan fully open-source, citation-grounded, and built to say "I don't know" rather than guess on a legal document where a confident wrong answer is worse than no answer.
 
 ## Why this isn't just "chat with a PDF"
 
@@ -8,29 +8,11 @@ Single-document RAG demos are common and usually shallow. This one leans into wh
 
 - **Cross-references everywhere** — Articles constantly point at each other ("subject to Article 8," "notwithstanding Article 199"). Naive chunking destroys these relationships; this system resolves them into an explicit reference graph at ingestion time.
 - **Amendments** — the source document annotates amended/inserted text with footnote markers tied to specific amendment Acts (e.g. Article 9A, the right to a clean environment, was inserted by the 26th Amendment in 2024). This system extracts that provenance as structured data, not just prose.
-- **High-stakes accuracy** — a wrong answer about a fundamental right isn't a shrug. Every generated claim is required to cite a specific Article, and the system is instructed — and evaluated — on whether it actually refuses to answer when the retrieved context doesn't cover the question, rather than filling the gap from the model's general knowledge.
+- **High-stakes accuracy** — a wrong answer about a fundamental right isn't a shrug. Every generated claim is required to cite a specific Article, and the system is instructed and evaluated on whether it actually refuses to answer when the retrieved context doesn't cover the question, rather than filling the gap from the model's general knowledge.
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    PDF[Constitution PDF] --> Parse[parse_pdf.py structure-aware parsing]
-    Parse --> Refs[resolve_crossrefs.py Article reference graph]
-    Refs --> Chunk[chunk_articles.py parent/child chunking]
-    Chunk --> Embed[embed_and_index.py BGE-M3 embeddings]
-    Embed --> Qdrant[(Qdrant dense vectors + payload)]
-    Chunk --> BM25[BM25 index in-memory]
-
-    Question[User question] --> Hybrid[hybrid_search.py]
-    Qdrant --> Hybrid
-    BM25 --> Hybrid
-    Hybrid --> RRF[Reciprocal Rank Fusion]
-    RRF --> Expand[Cross-reference expansion]
-    Expand --> Rerank[rerank.py bge-reranker-v2-m3]
-    Rerank --> Gen[generate.py citation-grounded prompt]
-    Gen --> LLM[Qwen3 8B via Ollama]
-    LLM --> Answer[Answer + citations + faithfulness check]
-```
+![System Architecture](docs\architecture.png)
 
 Served behind a FastAPI layer (`src/api/main.py`) with models loaded once at startup, not per-request.
 
@@ -38,12 +20,12 @@ Served behind a FastAPI layer (`src/api/main.py`) with models loaded once at sta
 
 | Component | Choice | Why |
 |---|---|---|
-| Embeddings | BAAI/bge-m3 | Apache 2.0, strong multilingual retrieval quality |
+| Embeddings | BAAI/bge-small-en-v1.5 | Apache 2.0, strong multilingual retrieval quality |
 | Vector store | Qdrant | Self-hosted, native hybrid (dense + sparse) support |
-| Keyword search | Hand-rolled BM25Okapi | No `rank_bm25` dependency — demonstrates the algorithm, not just a library call |
+| Keyword search | Hand-rolled BM25Okapi | No `rank_bm25` dependency demonstrates the algorithm, not just a library call |
 | Reranker | BAAI/bge-reranker-v2-m3 | Open-weight cross-encoder, meaningful precision gain over vector-only |
-| LLM | Qwen3 8B via Ollama | Fully local generation, no API keys |
-| Eval | RAGAS + a dependency-free tier-1 check | Standard metrics when available, always-on fallback when not |
+| LLM | Qwen3.5 0.8B via Ollama | Fully local generation, no API keys |
+| Eval | RAGAS + a dependency-free tier-1 check | Currently not working - model issue |
 
 No proprietary APIs anywhere in the pipeline.
 
@@ -59,41 +41,50 @@ No proprietary APIs anywhere in the pipeline.
 ## Quickstart
 
 ```bash
-# 1. Ingest (run once, or whenever the source PDF changes)
-python3 src/ingestion/parse_pdf.py --input data/raw/constitution.pdf --output data/processed/articles.json
-python3 src/ingestion/resolve_crossrefs.py --input data/processed/articles.json --output data/processed/articles_with_refs.json
-python3 src/ingestion/chunk_articles.py --input data/processed/articles_with_refs.json --child-output data/processed/child_chunks.json --parent-output data/processed/parent_chunks.json
+# 1. Create virtual environment
+python -m venv venv
 
-# 2. Bring up infra + pull the model
-docker compose up -d qdrant ollama ollama-pull
+# 2. Activate virtual environment (Windows)
+venv\Scripts\activate
 
-# 3. Embed and index (on-demand, not part of default `up`)
-docker compose --profile ingest run --rm ingest
+# 3. Install dependencies
+pip install -r requirements.txt
 
-# 4. Serve
-docker compose up -d api
-curl http://localhost:8000/health
+# 4. Ingest Constitution data
+python -m src.ingestion.parse_pdf
+python -m src.ingestion.resolve_crossref
+python -m src.ingestion.chunk_articles
 
-# 5. Query
-curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
-    -d '{"question": "What does Article 9A say, and when was it added?"}'
+# 5. Generate embeddings and build the index
+python -m src.ingestion.embed_and_index
+
+# 6. Start FastAPI backend
+uvicorn src.api.main:app --reload --port 8000
+
+# 7. In a separate terminal, activate the environment
+venv\Scripts\activate
+
+# 8. Start Streamlit frontend
+streamlit run src/frontend/app.py
+
+
+
 ```
 
 ## Evaluation results
 
-*Fill this in from `eval/results/*.json` after running each configuration — this before/after comparison is the single most convincing piece of evidence in this repo, more than any individual component.*
 
 ```bash
-python3 eval/run_eval.py --golden eval/golden_dataset.json --run-name bm25_only --bm25-only
-python3 eval/run_eval.py --golden eval/golden_dataset.json --run-name hybrid
-python3 eval/run_eval.py --golden eval/golden_dataset.json --run-name hybrid_reranked
+python run_eval.py --run-name bm25_only --bm25-only --no-ragas
+python run_eval.py --run-name hybrid --no-ragas
+python run_eval.py --run-name hybrid_reranking --rerank --no-ragas
 ```
 
 | Run | Retrieval hit rate | Correct refusal rate | Citation faithfulness (basic) | RAGAS faithfulness | RAGAS answer relevancy |
 |---|---|---|---|---|---|
-| BM25-only | TODO | TODO | TODO | TODO | TODO |
-| Hybrid (BM25 + dense) | TODO | TODO | TODO | TODO | TODO |
-| Hybrid + reranking | TODO | TODO | TODO | TODO | TODO |
+| BM25-only | 0.4 | NA | 0.5 | Model issue | Model issue |
+| Hybrid (BM25 + dense) | 0.6 | NA | 0.7 | Model issue | Model issue |
+| Hybrid + reranking | 0.9 | NA | 0.9 | Model issue | Model issue |
 
 ## Repository structure
 

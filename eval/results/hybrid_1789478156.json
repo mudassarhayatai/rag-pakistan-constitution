@@ -1,0 +1,186 @@
+{
+  "run_name": "hybrid",
+  "timestamp": 1789478156.3354602,
+  "cheap_summary": {
+    "total_questions": 5,
+    "pct_with_citation": 1.0,
+    "pct_passing_basic_faithfulness": 0.7,
+    "retrieval_hit_rate": 0.6,
+    "correct_refusal_rate": null
+  },
+  "ragas_scores": null,
+  "predictions": [
+    {
+      "id": "q1",
+      "category": "direct_lookup",
+      "question": "What does Article 9 of the Constitution guarantee?",
+      "ground_truth": "Article 9 guarantees security of person: no person shall be deprived of life or liberty save in accordance with law.",
+      "answer": "Based on the provided context, there is no mention of **Article 9** in any of the retrieved text. The available articles are Articles 41, 206, 192, 270, and 175B. Therefore, it is not possible to answer what Article 9 guarantees using only the provided context.",
+      "contexts": [
+        "2* * * * * * *",
+        "A Judge of a High Court who does not accept appointment as a Judge of the Federal Constitutional Court or the Supreme Court or a Judge of the Supreme Court who does not accept appointment as a Judge of the Federal Constitutional Court shall be deemed to have retired from his office and, on retirement, shall be entitled to receive a pension calculated on the basis of the length of his service as Judge and total service, if any, in the service of Pakistan. 1Added by the Constitution (Second Amendment) Order, 1980 (P. O. No. 4 of 1980), Art. 6. 4Renumbered by the Constitution (Fifth Amendment) Act, 1976 (Act No. LXII of 1976), s. 14, (w.e.f. the 13th September, 1976).",
+        "__",
+        "For purposes of the devolution process under clause (8), the Federal Government shall constitute an Implementation Commission as it may deem fit within fifteen days of the commencement of the Constitution (Eighteenth Amendment) Act, 2010. 270AAA. 1Validation and affirmation of laws etc.",
+        "The President may, by Order, make necessary provisions for the matters consequential or ancillary to the establishment and functioning of the Federal Constitutional Court."
+      ],
+      "retrieved_articles": [
+        "175B",
+        "192",
+        "206",
+        "270",
+        "41"
+      ],
+      "expected_articles": [
+        "9"
+      ],
+      "retrieval_hit": false,
+      "cheap_faithfulness": {
+        "cited_articles": [
+          "9"
+        ],
+        "ungrounded_citations": [
+          "9"
+        ],
+        "has_citation": true,
+        "passes_basic_check": false
+      }
+    },
+    {
+      "id": "q2",
+      "category": "direct_lookup",
+      "question": "What right does Article 9A establish?",
+      "ground_truth": "Article 9A establishes that every person shall be entitled to a clean, healthy and sustainable environment.",
+      "answer": "Based on the provided context, there is no mention of **Article 9A** in the text. The available articles are Article 4 (Retrieved), Article 119A (Right to access information), Article 117 (Provincial Assembly procedures), and Article 20 (Regulation of the West Pakistan Industrial Development Corporation).\n\nTherefore, it is not possible to answer what right Article 9A establishes using only the provided context.",
+      "contexts": [
+        "O. No. 10 of 1972).",
+        "__ Every citizen shall have the right to have access to information in all matters of public importance subject to regulation and reasonable restrictions imposed by law.",
+        "__ (1) A Bill pending in a Provincial Assembly shall not lapse by reason of the prorogation of the Assembly. (2) A Bill pending in a Provincial Assembly shall lapse on the dissolution of the Assembly. Financial Procedure",
+        "21. The West Pakistan Industrial Development Corporation (Revocation of Sale or Transfer) Regulation, 1972.",
+        "Subject to Article 251 any section of citizens having a distinct language, script or culture shall have the right to preserve and promote the same and subject to law, establish institutions for that purpose."
+      ],
+      "retrieved_articles": [
+        "117",
+        "119A",
+        "20",
+        "28",
+        "4"
+      ],
+      "expected_articles": [
+        "9A"
+      ],
+      "retrieval_hit": false,
+      "cheap_faithfulness": {
+        "cited_articles": [
+          "117",
+          "119A",
+          "20",
+          "4",
+          "9A"
+        ],
+        "ungrounded_citations": [
+          "9A"
+        ],
+        "has_citation": true,
+        "passes_basic_check": false
+      }
+    },
+    {
+      "id": "q3",
+      "category": "direct_lookup",
+      "question": "Who must give consent before a Money Bill can be introduced in the Provincial Assembly?",
+      "ground_truth": "A Money Bill cannot be introduced or moved in the Provincial Assembly except by or with the consent of the Provincial Government.",
+      "answer": "According to Article 115 of the Constitution, a Money Bill shall not be introduced or moved in the Provincial Assembly except by or with the consent of the Provincial Government. Therefore, the Provincial Government must give consent before such a bill can be introduced.",
+      "contexts": [
+        "A Money Bill, or a Bill or amendment which if enacted and brought into operation would involve expenditure from the Provincial Consolidated Fund or withdrawal from the Public Account of the Province shall not be introduced or moved in the Provincial Assembly except by or with the consent of the Provincial Government.",
+        "A Money Bill, or a Bill or amendment which if enacted and brought into operation would involve expenditure from the Federal Consolidated Fund or withdrawal from the Public Account of the Federation or affect the coinage or currency of Pakistan or the constitution or functions of the State Bank of Pakistan shall not be introduced or moved in 1Majlis-e-Shoora (Parliament) except by or with the consent of the Federal Government.",
+        "without prejudice to the provisions of clause (2),__ (a) an Ordinance laid before the National Assembly under sub-paragraph (i) of paragraph (a) of clause (2) shall be deemed to be a Bill introduced in the National Assembly; and (b) an Ordinance laid before both Houses under sub-paragraph (ii) of paragraph (a) of clause (2) shall be deemed to be a Bill introduced in the House where it was first laid. 1 290. The Federal Government.__ (1) Subject to the Constitution, the executive authority of the Federation shall be exercised in the name of the President by the Federal Government, consisting of the Prime Minister and the Federal Ministers, which shall act through the Prime Minister, who shall be the chief executive of the Federation. (2) In the performance of his functions under the Constitution, the Prime Minister may act either directly or through the Federal Ministers.",
+        "Notwithstanding anything contained in Article 70, a Money Bill shall originate in the National Assembly: Provided that simultaneously when a Money Bill, including the Finance Bill containing the Annual Budget Statement, is presented in the National Assembly, a copy thereof shall be transmitted to the Senate which may, within fourteen days, make recommendations thereon to the National Assembly. 1(1A) The National Assembly shall consider the recommendations of the Senate and after the Bill has been passed by the Assembly with or without incorporating the recommendations of the Senate, it shall be presented to the President for assent. 3* * * * * * *"
+      ],
+      "retrieved_articles": [
+        "115",
+        "73",
+        "74",
+        "89"
+      ],
+      "expected_articles": [
+        "115"
+      ],
+      "retrieval_hit": true,
+      "cheap_faithfulness": {
+        "cited_articles": [
+          "115"
+        ],
+        "ungrounded_citations": [],
+        "has_citation": true,
+        "passes_basic_check": true
+      }
+    },
+    {
+      "id": "q4",
+      "category": "numeric_procedural",
+      "question": "How many days does the Governor have to give assent to a Bill presented by the Provincial Assembly?",
+      "ground_truth": "The Governor must, within ten days, assent to the Bill or, in the case of a Bill other than a Money Bill, return it to the Provincial Assembly for reconsideration.",
+      "answer": "According to Article 115, when a Bill is presented to the Governor for assent, the Governor shall, within **ten days**, give his assent or return the Bill with a message requesting reconsideration (Article 115). Furthermore, Article 115 states that if the Governor has assented or is deemed to have assented to a Bill, it shall become law and be called an Act of Provincial Assembly.\n\nTherefore, the Governor has **ten days** to give assent to a Bill presented by the Provincial Assembly.",
+      "contexts": [
+        "Every Money Bill presented to the Governor for assent shall bear a certificate under the hand of the Speaker of the Provincial Assembly that it is a Money Bill and such certificate shall be conclusive for all purposes and shall not be called in question. 1116. Governor’s assent to Bills.__ (1) When a Bill has been passed by the Provincial Assembly, it shall be presented to the Governor for assent. (2) When a Bill is presented to the Governor for assent, the Governor shall, within 2ten days,__ (a) assent to the Bill; or (b) in the case of a Bill other than a Money Bill, return the Bill to the Provincial Assembly with a message requesting that the Bill, or any specified provision thereof, be reconsidered and that any amendment specified in the message be considered. 3(3) When the Governor has returned a Bill to the Provincial Assembly, it shall be reconsidered by the Provincial Assembly and, if it is again passed, with or without amendment, by the Provincial Assembly, by the votes of the majority of the members of the Provincial Assembly present and voting, it shall be again presented to the Governor and the Governor shall 1give his assent within ten days, failing which such assent shall be deemed to have been given. (4) When the Governor has assented 2or is deemed to have assented to a Bill it shall become law and be called an Act of Provincial Assembly. (5) No Act of a Provincial Assembly, and no provision in any such Act, shall be invalid by reason only that some recommendation, previous sanction or consent required by the Constitution was not given if that Act was assented to in accordance with the Constitution.",
+        "No court shall have any jurisdiction save as is or may be conferred on it by the Constitution or by or under any law.",
+        "The Governor shall dissolve the Provincial Assembly if so advised by the Chief Minister; and the Provincial Assembly shall, unless sooner dissolved, stand dissolved at the expiration of forty-eight hours after the Chief Minister has so advised. Explanation.__ Reference in this Article to ‘Chief Minister’ shall not be construed to include reference to a Chief Minister against whom a notice of a resolution for a vote of no-confidence has been given in the Provincial Assembly but has not been voted upon or against whom a resolution for a vote of no-confidence has been passed.",
+        "A Bill to amend the Constitution which would have the effect of altering the limits of a Province shall not be presented to the President for assent unless it has been passed by the Provincial Assembly of that Province by the votes of not less than two-thirds of its total membership. 1",
+        "106. Constitution of Provincial Assemblies 107. Duration of Provincial Assembly 108. Speaker and Deputy Speaker 109. Summoning and prorogation of Provincial Assembly 110. Right of Governor to address Provincial Assembly 111. Right to speak in Provincial Assembly 112. Dissolution of Provincial Assembly 113. Qualifications and disqualifications for membership of Provincial Assembly 114. Restriction on discussion in Provincial Assembly 115. Provincial Government’s consent required for financial measures 116. Governor’s assent to Bills"
+      ],
+      "retrieved_articles": [
+        "105",
+        "111",
+        "115",
+        "175",
+        "238"
+      ],
+      "expected_articles": [
+        "116"
+      ],
+      "retrieval_hit": false,
+      "cheap_faithfulness": {
+        "cited_articles": [
+          "115"
+        ],
+        "ungrounded_citations": [],
+        "has_citation": true,
+        "passes_basic_check": true
+      }
+    },
+    {
+      "id": "q5",
+      "category": "direct_lookup",
+      "question": "Who has the final decision on whether a Bill is a Money Bill or not?",
+      "ground_truth": "The decision of the Speaker of the Provincial Assembly is final on whether a Bill is a Money Bill or not.",
+      "answer": "According to the provided context, the decision on whether a Bill is a Money Bill shall be final in two specific instances:\n1.  **National Assembly:** Under **Article 73**, the Speaker of the National Assembly has the final decision.\n2.  **Provincial Assembly:** Under **Article 115**, the Speaker of the Provincial Assembly has the final decision.\n\nTherefore, the final decision rests with the Speaker of the National Assembly or the Speaker of the Provincial Assembly depending on the legislative body involved.",
+      "contexts": [
+        "If any question arises whether a Bill is a Money Bill or not, the decision of the Speaker of the National Assembly thereon shall be final.",
+        "If any question arises whether a Bill is a Money Bill or not, the decision of the Speaker of the Provincial Assembly thereon shall be final.",
+        "There shall be 3a Federal Constitutional Court of Pakistan, hereinafter referred to as the Federal Constitutional Court a Supreme Court of Pakistan 3hereinafter referred to as the Supreme Court, a High Court for each Province 4and a High Court for the Islamabad Capital Territory and such other courts as may be established by law. 1Explanation.__ Unless the context otherwise requires, the words “High Court” wherever occurring in the Constitution shall include “Islamabad High Court”.",
+        "A Bill pending in the Senate which has not been passed by the National Assembly shall not lapse on the dissolution of the National Assembly.",
+        "Article 68: Restriction on discussion in 1Majlis-e-Shoora (Parliament).\nNo discussion shall take place in 1Majlis-e-Shoora (Parliament) with respect to the conduct of any Judge of 2the Federal Constitutional Court, the Supreme Court or of a High Court in the discharge of his duties."
+      ],
+      "retrieved_articles": [
+        "115",
+        "175",
+        "68",
+        "73",
+        "76"
+      ],
+      "expected_articles": [
+        "115"
+      ],
+      "retrieval_hit": true,
+      "cheap_faithfulness": {
+        "cited_articles": [
+          "115",
+          "73"
+        ],
+        "ungrounded_citations": [],
+        "has_citation": true,
+        "passes_basic_check": true
+      }
+    }
+  ]
+}
