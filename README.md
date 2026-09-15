@@ -27,7 +27,7 @@ Served behind a FastAPI layer (`src/api/main.py`) with models loaded once at sta
 | Keyword search | Hand-rolled BM25Okapi | No `rank_bm25` dependency demonstrates the algorithm, not just a library call |
 | Reranker | BAAI/bge-reranker-v2-m3 | Open-weight cross-encoder, meaningful precision gain over vector-only |
 | LLM | Qwen3.5 0.8B via Ollama | Fully local generation, no API keys |
-| Eval | RAGAS + a dependency-free tier-1 check | Currently not working - model issue |
+| Eval | RAGAS + a dependency-free tier-1 check | Ragas Currently not working - model issue |
 
 No proprietary APIs anywhere in the pipeline.
 
