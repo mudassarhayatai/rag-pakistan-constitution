@@ -12,7 +12,9 @@ Single-document RAG demos are common and usually shallow. This one leans into wh
 
 ## Architecture
 
-![architecture](docs/architecture.png)
+<p align="center">
+  <img src="docs/architecture.png" alt="System Architecture" width="800"/>
+</p>
 
 Served behind a FastAPI layer (`src/api/main.py`) with models loaded once at startup, not per-request.
 
