@@ -12,7 +12,7 @@ Single-document RAG demos are common and usually shallow. This one leans into wh
 
 ## Architecture
 
-![System Architecture](docs\architecture.png)
+![architecture](docs/architecture.png)
 
 Served behind a FastAPI layer (`src/api/main.py`) with models loaded once at startup, not per-request.
 
@@ -82,9 +82,9 @@ python run_eval.py --run-name hybrid_reranking --rerank --no-ragas
 
 | Run | Retrieval hit rate | Correct refusal rate | Citation faithfulness (basic) | RAGAS faithfulness | RAGAS answer relevancy |
 |---|---|---|---|---|---|
-| BM25-only | 0.4 | NA | 0.5 | Model issue | Model issue |
-| Hybrid (BM25 + dense) | 0.6 | NA | 0.7 | Model issue | Model issue |
-| Hybrid + reranking | 0.9 | NA | 0.9 | Model issue | Model issue |
+| BM25-only | 0.4 | 1.0 | 0.5 | Model issue | Model issue |
+| Hybrid (BM25 + dense) | 0.6 | 1.0 | 0.7 | Model issue | Model issue |
+| Hybrid + reranking | 0.9 | 1.0 | 0.9 | Model issue | Model issue |
 
 ## Repository structure
 
