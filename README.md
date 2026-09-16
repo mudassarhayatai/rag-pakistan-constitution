@@ -142,3 +142,7 @@ rag-pakistan-constitution/
 - Extend cross-reference resolution to Schedules and Part-level references
 - Add an automated re-indexing trigger keyed to source-document checksum changes
 - Add memory element
+
+<p align="center">
+  <img src="docs/Rag-Constitution of Pakistan.webm" alt="Demo" width="300"/>
+</p>
