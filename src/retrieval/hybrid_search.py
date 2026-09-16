@@ -24,19 +24,55 @@ import math
 import re
 from collections import Counter
 
+# ============================================================
+# CONFIGURATION
+# ============================================================
 
+# Hard-coded paths
+CHUNKS_PATH = "data/processed/child_chunks.json"
+PARENTS_PATH = "data/processed/parent_chunks.json"
+QDRANT_PATH = "qdrant_local"
+
+# Query
+QUERY = "	Who must give consent before a Money Bill can be introduced in the Provincial Assembly?"
+
+# Retrieval settings
+TOP_K = 5
+COLLECTION = "constitution_pk"
+
+# False = BM25 + Dense + RRF
+# True  = BM25 only
+BM25_ONLY = False
+
+# Embedding model MUST match the model used during indexing
 EMBEDDING_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 
+# Dense relevance threshold
+DEFAULT_DENSE_SCORE_THRESHOLD = 0.6
 
-# ---------------------------------------------------------------------------
+# BM25 THRESHOLD
+BM25_SCORE_THRESHOLD = 9.0
+
+
+# ============================================================
 # BM25
-# ---------------------------------------------------------------------------
+# ============================================================
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
+_STOPWORDS = frozenset("""
+a an and are as at be by for from has have he in is it its of on that the
+to was were will with what who whom when where why how do does did this
+these those i you we they them his her their but or if not no so
+""".split())
+
 
 def tokenize(text: str) -> list[str]:
-    return _TOKEN_RE.findall(text.lower())
+    return [
+        t
+        for t in _TOKEN_RE.findall(text.lower())
+        if t not in _STOPWORDS
+    ]
 
 
 class BM25:
@@ -46,17 +82,21 @@ class BM25:
         doc_ids: list[str],
         documents: list[str],
         k1: float = 1.5,
-        b: float = 0.75,
+        b: float = 0.75
     ):
+
         self.k1 = k1
         self.b = b
         self.doc_ids = doc_ids
 
-        self.doc_tokens = [tokenize(doc) for doc in documents]
+        self.doc_tokens = [
+            tokenize(doc)
+            for doc in documents
+        ]
 
         self.doc_lengths = [
-            len(tokens)
-            for tokens in self.doc_tokens
+            len(toks)
+            for toks in self.doc_tokens
         ]
 
         self.avgdl = (
@@ -66,37 +106,27 @@ class BM25:
         )
 
         self.term_freqs = [
-            Counter(tokens)
-            for tokens in self.doc_tokens
+            Counter(toks)
+            for toks in self.doc_tokens
         ]
 
         # Document frequency
         df = Counter()
 
-        for tokens in self.doc_tokens:
-            for term in set(tokens):
+        for toks in self.doc_tokens:
+            for term in set(toks):
                 df[term] += 1
 
         n_docs = max(len(documents), 1)
 
         self.idf = {
             term: math.log(
-                (n_docs - freq + 0.5) /
-                (freq + 0.5)
+                (n_docs - freq + 0.5)
+                / (freq + 0.5)
                 + 1
             )
             for term, freq in df.items()
         }
-
-        print("\n" + "=" * 70)
-        print("BM25 INDEX CREATED")
-        print("=" * 70)
-
-        print(f"Number of documents : {len(documents)}")
-        print(f"Average document len: {self.avgdl:.2f} tokens")
-        print(f"k1                  : {self.k1}")
-        print(f"b                   : {self.b}")
-        print(f"Unique terms        : {len(self.idf)}")
 
     def score(
         self,
@@ -115,7 +145,6 @@ class BM25:
                 continue
 
             idf = self.idf.get(term, 0.0)
-
             f = freqs[term]
 
             denom = (
@@ -124,7 +153,9 @@ class BM25:
                 * (
                     1
                     - self.b
-                    + self.b * doc_len / (self.avgdl or 1)
+                    + self.b
+                    * doc_len
+                    / (self.avgdl or 1)
                 )
             )
 
@@ -139,10 +170,12 @@ class BM25:
     def search(
         self,
         query: str,
-        top_k: int = 10
+        top_k: int = 10,
+        score_threshold: float = 5.0
     ) -> list[tuple[str, float]]:
 
-        print("\n" + "=" * 70)
+        print()
+        print("=" * 70)
         print("BM25 SEARCH")
         print("=" * 70)
 
@@ -151,52 +184,28 @@ class BM25:
         query_tokens = tokenize(query)
 
         print(f"Query tokens: {query_tokens}")
+        print(f"Documents searched: {len(self.doc_ids)}")
+        print(f"Requested top-k: {top_k}")
+        print(f"BM25 score threshold: {score_threshold}")
 
-        # -------------------------------------------------------
-        # Show IDF for query terms
-        # -------------------------------------------------------
-
-        print("\nQuery term IDF:")
-
-        for term in query_tokens:
-
-            if term in self.idf:
-
-                print(
-                    f"  {term:<15} "
-                    f"IDF = {self.idf[term]:.4f}"
-                )
-
-            else:
-
-                print(
-                    f"  {term:<15} "
-                    f"NOT FOUND in corpus"
-                )
-
-        # -------------------------------------------------------
-        # Score every document
-        # -------------------------------------------------------
-
-        scored = []
-
-        for i in range(len(self.doc_ids)):
-
-            score = self.score(
-                query_tokens,
-                i
+        scored = [
+            (
+                self.doc_ids[i],
+                self.score(query_tokens, i)
             )
+            for i in range(len(self.doc_ids))
+        ]
 
-            if score > 0:
+        # --------------------------------------------------------
+        # Remove documents below BM25 threshold
+        # --------------------------------------------------------
 
-                scored.append(
-                    (
-                        self.doc_ids[i],
-                        score
-                    )
-                )
+        scored = [
+            s
+            for s in scored
+            if s[1] >= score_threshold
+        ]
 
-        # Sort highest score first
         scored.sort(
             key=lambda x: x[1],
             reverse=True
@@ -204,11 +213,23 @@ class BM25:
 
         results = scored[:top_k]
 
-        # -------------------------------------------------------
-        # Display BM25 ranking
-        # -------------------------------------------------------
+        print()
+        print(
+            f"BM25 documents above threshold: "
+            f"{len(scored)}"
+        )
 
-        print("\nBM25 TOP RESULTS:")
+        print(
+            f"BM25 returned: "
+            f"{len(results)}"
+        )
+
+        if not results:
+
+            print(
+                f"No BM25 results with score >= "
+                f"{score_threshold}"
+            )
 
         for rank, (doc_id, score) in enumerate(
             results,
@@ -216,47 +237,41 @@ class BM25:
         ):
 
             print(
-                f"  Rank {rank}: "
-                f"{doc_id:<20} "
-                f"BM25 Score = {score:.4f}"
+                f"  {rank}. "
+                f"{doc_id} "
+                f"| BM25 score = {score:.4f}"
             )
-
-        print(
-            f"\nBM25 candidates with score > 0: "
-            f"{len(scored)}"
-        )
 
         return results
 
 
-# ---------------------------------------------------------------------------
-# Reciprocal Rank Fusion
-# ---------------------------------------------------------------------------
+# ============================================================
+# RECIPROCAL RANK FUSION
+# ============================================================
 
 def reciprocal_rank_fusion(
     ranked_lists: list[list[str]],
     k: int = 60
 ) -> list[tuple[str, float]]:
 
-    print("\n" + "=" * 70)
-    print("RECIPROCAL RANK FUSION (RRF)")
+    print()
+    print("=" * 70)
+    print("RECIPROCAL RANK FUSION")
     print("=" * 70)
 
-    print(f"RRF constant k = {k}")
+    print(f"RRF constant k: {k}")
+    print(f"Number of ranking lists: {len(ranked_lists)}")
 
     scores: dict[str, float] = {}
-
-    # Keep track of where each document appeared
-    contributions = {}
 
     for list_number, ranked in enumerate(
         ranked_lists,
         start=1
     ):
 
-        print(
-            f"\nRanking list #{list_number}"
-        )
+        print()
+        print(f"Ranking list {list_number}")
+        print("-" * 50)
 
         for rank, doc_id in enumerate(
             ranked,
@@ -270,30 +285,21 @@ def reciprocal_rank_fusion(
                 + contribution
             )
 
-            if doc_id not in contributions:
-                contributions[doc_id] = []
-
-            contributions[doc_id].append(
-                (
-                    rank,
-                    contribution
-                )
-            )
-
             print(
-                f"  {doc_id:<20} "
-                f"rank={rank:<3} "
-                f"contribution={contribution:.6f}"
+                f"  Rank {rank}: "
+                f"{doc_id} "
+                f"| contribution = {contribution:.6f}"
             )
 
-    # Sort by RRF score
     fused = sorted(
         scores.items(),
         key=lambda x: x[1],
         reverse=True
     )
 
-    print("\nFINAL RRF SCORES:")
+    print()
+    print("FINAL RRF RANKING")
+    print("-" * 50)
 
     for rank, (doc_id, score) in enumerate(
         fused,
@@ -301,17 +307,17 @@ def reciprocal_rank_fusion(
     ):
 
         print(
-            f"  Rank {rank}: "
-            f"{doc_id:<20} "
-            f"RRF = {score:.6f}"
+            f"  {rank}. "
+            f"{doc_id} "
+            f"| RRF score = {score:.6f}"
         )
 
     return fused
 
 
-# ---------------------------------------------------------------------------
-# Cross-reference expansion
-# ---------------------------------------------------------------------------
+# ============================================================
+# CROSS-REFERENCE EXPANSION
+# ============================================================
 
 def expand_with_references(
     top_chunk_ids: list[str],
@@ -320,54 +326,44 @@ def expand_with_references(
     max_extra: int = 3,
 ) -> list[dict]:
 
-    print("\n" + "=" * 70)
+    print()
+    print("=" * 70)
     print("CROSS-REFERENCE EXPANSION")
     print("=" * 70)
 
-    print(
-        f"Starting with top chunk IDs: "
-        f"{top_chunk_ids}"
-    )
+    print(f"Input chunks: {len(top_chunk_ids)}")
+    print(f"Maximum extra reference articles: {max_extra}")
 
     results = []
-
     seen_articles = set()
 
-    # -------------------------------------------------------
+    # --------------------------------------------------------
     # Add directly retrieved chunks
-    # -------------------------------------------------------
+    # --------------------------------------------------------
 
-    print("\nDirectly retrieved chunks:")
+    print()
+    print("DIRECTLY RETRIEVED ARTICLES")
+    print("-" * 50)
 
     for chunk_id in top_chunk_ids:
 
         chunk = chunks_by_id.get(chunk_id)
 
         if not chunk:
-
             print(
-                f"  {chunk_id}: NOT FOUND"
+                f"  WARNING: chunk not found: {chunk_id}"
             )
-
             continue
 
         article_num = chunk["article_number"]
 
         if article_num in seen_articles:
-
             print(
-                f"  Article {article_num}: "
-                f"already seen -> skip"
+                f"  Skipping duplicate Article {article_num}"
             )
-
             continue
 
         seen_articles.add(article_num)
-
-        print(
-            f"  Article {article_num} "
-            f"<- chunk {chunk_id}"
-        )
 
         results.append(
             {
@@ -378,17 +374,27 @@ def expand_with_references(
             }
         )
 
-    # -------------------------------------------------------
+        print(
+            f"  Added Article {article_num} "
+            f"| chunk={chunk_id}"
+        )
+
+    # --------------------------------------------------------
     # Add referenced articles
-    # -------------------------------------------------------
+    # --------------------------------------------------------
 
     extras_added = 0
 
-    print("\nLooking for cross-references...")
+    print()
+    print("REFERENCED ARTICLES")
+    print("-" * 50)
 
     for chunk_id in top_chunk_ids:
 
         if extras_added >= max_extra:
+            print(
+                f"  Reached max_extra limit: {max_extra}"
+            )
             break
 
         chunk = chunks_by_id.get(chunk_id)
@@ -409,8 +415,8 @@ def expand_with_references(
         )
 
         print(
-            f"\nArticle {article_num} "
-            f"references: {references}"
+            f"  Article {article_num} references: "
+            f"{references}"
         )
 
         for ref_article in references:
@@ -419,12 +425,10 @@ def expand_with_references(
                 break
 
             if ref_article in seen_articles:
-
                 print(
-                    f"  Article {ref_article}: "
-                    f"already included -> skip"
+                    f"    Article {ref_article} "
+                    f"already present - skipping"
                 )
-
                 continue
 
             ref_parent = parents_by_id.get(
@@ -432,47 +436,55 @@ def expand_with_references(
             )
 
             if not ref_parent:
-
                 print(
-                    f"  Article {ref_article}: "
+                    f"    Article {ref_article} "
                     f"parent not found"
                 )
-
                 continue
 
-            print(
-                f"  + Adding referenced "
-                f"Article {ref_article}"
-            )
-
-            seen_articles.add(
-                ref_article
-            )
+            seen_articles.add(ref_article)
 
             results.append(
                 {
                     "chunk_id": None,
                     "article_number": ref_article,
                     "text": ref_parent.get("text"),
-                    "source":
+                    "source": (
                         f"cross_reference "
-                        f"(via Article {article_num})",
+                        f"(via Article {article_num})"
+                    ),
                 }
             )
 
             extras_added += 1
 
+            print(
+                f"    + Added referenced Article "
+                f"{ref_article}"
+            )
+
+    print()
     print(
-        f"\nCross-reference articles added: "
+        f"Direct articles: "
+        f"{len(top_chunk_ids)}"
+    )
+
+    print(
+        f"Extra reference articles: "
         f"{extras_added}"
+    )
+
+    print(
+        f"Total final results: "
+        f"{len(results)}"
     )
 
     return results
 
 
-# ---------------------------------------------------------------------------
-# Hybrid Retriever
-# ---------------------------------------------------------------------------
+# ============================================================
+# HYBRID RETRIEVER
+# ============================================================
 
 class HybridRetriever:
 
@@ -483,19 +495,13 @@ class HybridRetriever:
         qdrant_client=None,
         collection: str = "constitution_pk",
         embedding_model=None,
+        dense_score_threshold: float = DEFAULT_DENSE_SCORE_THRESHOLD,
     ):
 
-        print("\n" + "=" * 70)
-        print("INITIALIZING HYBRID RETRIEVER")
+        print()
         print("=" * 70)
-
-        print(
-            f"Child chunks : {len(child_chunks)}"
-        )
-
-        print(
-            f"Parent chunks: {len(parent_chunks)}"
-        )
+        print("INITIALIZING RETRIEVER")
+        print("=" * 70)
 
         self.chunks_by_id = {
             c["chunk_id"]: c
@@ -508,18 +514,14 @@ class HybridRetriever:
         }
 
         print(
-            f"Chunk ID mapping created: "
-            f"{len(self.chunks_by_id)}"
+            f"Child chunks: "
+            f"{len(child_chunks)}"
         )
 
         print(
-            f"Parent ID mapping created: "
-            f"{len(self.parents_by_id)}"
+            f"Parent chunks: "
+            f"{len(parent_chunks)}"
         )
-
-        # -------------------------------------------------------
-        # Build BM25
-        # -------------------------------------------------------
 
         self.bm25 = BM25(
             doc_ids=[
@@ -529,32 +531,39 @@ class HybridRetriever:
             documents=[
                 c["text"]
                 for c in child_chunks
-            ],
+            ]
         )
 
         self.qdrant_client = qdrant_client
         self.collection = collection
         self.embedding_model = embedding_model
+        self.dense_score_threshold = (
+            dense_score_threshold
+        )
 
-        print("\nDense search:")
+        print(
+            f"Qdrant enabled: "
+            f"{self.qdrant_client is not None}"
+        )
 
-        if self.qdrant_client is not None:
-            print("  Qdrant: ENABLED")
-        else:
-            print("  Qdrant: DISABLED")
+        print(
+            f"Embedding model enabled: "
+            f"{self.embedding_model is not None}"
+        )
 
-        if self.embedding_model is not None:
-            print(
-                "  Embedding model: ENABLED"
-            )
-        else:
-            print(
-                "  Embedding model: DISABLED"
-            )
+        print(
+            f"Collection: "
+            f"{self.collection}"
+        )
 
-    # -----------------------------------------------------------
-    # Dense search
-    # -----------------------------------------------------------
+        print(
+            f"Dense threshold: "
+            f"{self.dense_score_threshold}"
+        )
+
+    # ========================================================
+    # DENSE SEARCH
+    # ========================================================
 
     def _dense_search(
         self,
@@ -562,9 +571,13 @@ class HybridRetriever:
         top_k: int
     ) -> list[str]:
 
-        print("\n" + "=" * 70)
+        print()
+        print("=" * 70)
         print("DENSE VECTOR SEARCH")
         print("=" * 70)
+
+        print(f"Query: {query}")
+        print(f"Top-K: {top_k}")
 
         if (
             self.qdrant_client is None
@@ -572,21 +585,18 @@ class HybridRetriever:
         ):
 
             print(
-                "Dense search disabled."
+                "Dense search is disabled."
             )
 
             return []
 
         print(
-            f"Query: {query}"
+            "Generating query embedding..."
         )
 
-        # -------------------------------------------------------
-        # Convert query into embedding
-        # -------------------------------------------------------
-
         query_vector = (
-            self.embedding_model.encode(
+            self.embedding_model
+            .encode(
                 query,
                 normalize_embeddings=True
             )
@@ -594,246 +604,397 @@ class HybridRetriever:
         )
 
         print(
-            f"Query vector dimension: "
+            f"Embedding dimension: "
             f"{len(query_vector)}"
         )
 
         print(
-            "First 10 vector values:"
-        )
-
-        print(
-            query_vector[:10]
-        )
-
-        # -------------------------------------------------------
-        # Search Qdrant
-        # -------------------------------------------------------
-
-        print(
-            f"\nSearching Qdrant collection: "
+            f"Searching Qdrant collection: "
             f"{self.collection}"
         )
 
         print(
-            f"Top K requested: {top_k}"
+            f"Score threshold: "
+            f"{self.dense_score_threshold}"
         )
 
         response = (
-            self.qdrant_client.query_points(
+            self.qdrant_client
+            .query_points(
                 collection_name=self.collection,
                 query=query_vector,
                 limit=top_k,
                 with_payload=True,
+                score_threshold=(
+                    self.dense_score_threshold
+                ),
             )
         )
 
         print(
-            f"\nQdrant returned "
-            f"{len(response.points)} points"
+            f"Dense results returned: "
+            f"{len(response.points)}"
         )
 
-        # -------------------------------------------------------
-        # Show dense ranking
-        # -------------------------------------------------------
-
-        dense_ids = []
-
-        print("\nDENSE TOP RESULTS:")
+        results = []
 
         for rank, point in enumerate(
             response.points,
             start=1
         ):
 
-            chunk_id = point.payload.get(
-                "chunk_id"
+            chunk_id = (
+                point.payload["chunk_id"]
             )
 
-            dense_ids.append(
-                chunk_id
+            score = point.score
+
+            results.append(chunk_id)
+
+            article_number = (
+                point.payload.get(
+                    "article_number",
+                    "unknown"
+                )
             )
 
             print(
-                f"  Rank {rank}: "
-                f"{chunk_id:<20} "
-                f"Similarity = {point.score:.6f}"
+                f"  {rank}. "
+                f"{chunk_id} "
+                f"| Article {article_number} "
+                f"| score = {score:.4f}"
             )
 
-        return dense_ids
+        return results
 
-    # -----------------------------------------------------------
-    # Main search
-    # -----------------------------------------------------------
+    # ========================================================
+    # MAIN SEARCH
+    # ========================================================
 
     def search(
         self,
         query: str,
         top_k: int = 10,
-        max_extra_from_refs: int = 3,
+        max_extra_from_refs: int = 3
     ) -> list[dict]:
 
-        print("\n")
+        print()
+        print()
         print("#" * 70)
-        print("HYBRID SEARCH START")
+        print("RETRIEVAL PIPELINE")
         print("#" * 70)
 
-        print(
-            f"\nQUERY:\n{query}"
-        )
+        print(f"Query: {query}")
+        print(f"Top-K: {top_k}")
 
-        # -------------------------------------------------------
+        # ----------------------------------------------------
         # BM25
-        # -------------------------------------------------------
+        # ----------------------------------------------------
 
         bm25_results = self.bm25.search(
             query,
-            top_k=top_k
+            top_k=top_k,
+            score_threshold=BM25_SCORE_THRESHOLD
         )
 
         bm25_ranked = [
             doc_id
-            for doc_id, score
-            in bm25_results
+            for doc_id, _ in bm25_results
         ]
 
-        print(
-            "\nBM25 ranking IDs:"
-        )
+        # ----------------------------------------------------
+        # BM25 relevance guardrail
+        # ----------------------------------------------------
 
-        print(
-            bm25_ranked
-        )
+        if not bm25_ranked:
 
-        # -------------------------------------------------------
-        # Dense
-        # -------------------------------------------------------
-
-        dense_ranked = self._dense_search(
-            query,
-            top_k=top_k
-        )
-
-        print(
-            "\nDense ranking IDs:"
-        )
-
-        print(
-            dense_ranked
-        )
-
-        # -------------------------------------------------------
-        # RRF
-        # -------------------------------------------------------
-
-        ranked_lists = [
-            ranking
-            for ranking in (
-                bm25_ranked,
-                dense_ranked
-            )
-            if ranking
-        ]
-
-        print("\nRanking lists sent to RRF:")
-
-        for i, ranking in enumerate(
-            ranked_lists,
-            start=1
-        ):
+            print()
+            print("=" * 70)
+            print("BM25 RELEVANCE GUARDRAIL")
+            print("=" * 70)
 
             print(
-                f"  List {i}: {ranking}"
+                f"No BM25 result reached the minimum "
+                f"score of {BM25_SCORE_THRESHOLD}."
             )
 
-        if ranked_lists:
+            print(
+                "Query is considered irrelevant "
+                "for this knowledge base."
+            )
+
+            print(
+                "Skipping dense retrieval."
+            )
+
+            print(
+                "Skipping RRF."
+            )
+
+            print(
+                "Skipping cross-reference expansion."
+            )
+
+            print(
+                "Returning empty retrieval context."
+            )
+
+            return []
+
+        # ----------------------------------------------------
+        # Dense
+        # ----------------------------------------------------
+
+        dense_ranked = []
+
+        if not BM25_ONLY:
+
+            dense_ranked = self._dense_search(
+                query,
+                top_k=top_k
+            )
+
+        else:
+
+            print()
+            print("=" * 70)
+            print("DENSE SEARCH SKIPPED")
+            print("=" * 70)
+            print(
+                "BM25_ONLY = True"
+            )
+
+        # ----------------------------------------------------
+        # Display rankings
+        # ----------------------------------------------------
+
+        print()
+        print("=" * 70)
+        print("BM25 RANKING")
+        print("=" * 70)
+
+        if bm25_ranked:
+
+            for rank, doc_id in enumerate(
+                bm25_ranked,
+                start=1
+            ):
+
+                print(
+                    f"  {rank}. {doc_id}"
+                )
+
+        else:
+
+            print("  No BM25 results.")
+
+        print()
+        print("=" * 70)
+        print("DENSE RANKING")
+        print("=" * 70)
+
+        if dense_ranked:
+
+            for rank, doc_id in enumerate(
+                dense_ranked,
+                start=1
+            ):
+
+                print(
+                    f"  {rank}. {doc_id}"
+                )
+
+        else:
+
+            print("  No dense results.")
+
+        # ----------------------------------------------------
+        # Relevance guardrail
+        # ----------------------------------------------------
+
+        if (
+            not bm25_ranked
+            and not dense_ranked
+        ):
+
+            print()
+            print(
+                "No BM25 or dense results found."
+            )
+
+            print(
+                "Returning empty result."
+            )
+
+            return []
+
+        # ----------------------------------------------------
+        # BM25-only
+        # ----------------------------------------------------
+
+        if BM25_ONLY:
+
+            print()
+            print("=" * 70)
+            print("BM25-ONLY MODE")
+            print("=" * 70)
+
+            top_ids = bm25_ranked[:top_k]
+
+        # ----------------------------------------------------
+        # Hybrid BM25 + Dense
+        # ----------------------------------------------------
+
+        else:
+
+            ranked_lists = [
+                r
+                for r in (
+                    bm25_ranked,
+                    dense_ranked
+                )
+                if r
+            ]
+
+            print()
+            print("=" * 70)
+            print("HYBRID RETRIEVAL")
+            print("=" * 70)
+
+            print(
+                "Combining BM25 + Dense "
+                "using RRF..."
+            )
 
             fused = reciprocal_rank_fusion(
                 ranked_lists
             )
 
-        else:
+            top_ids = [
+                doc_id
+                for doc_id, _ in fused[:top_k]
+            ]
 
-            fused = []
+        # ----------------------------------------------------
+        # Top results
+        # ----------------------------------------------------
 
-        # -------------------------------------------------------
-        # Select top IDs
-        # -------------------------------------------------------
-
-        top_ids = [
-            doc_id
-            for doc_id, score
-            in fused[:top_k]
-        ]
-
-        if not top_ids:
-
-            top_ids = bm25_ranked
-
-        print(
-            "\nFINAL IDs AFTER RRF:"
-        )
+        print()
+        print("=" * 70)
+        print("TOP RESULTS")
+        print("=" * 70)
 
         for rank, doc_id in enumerate(
             top_ids,
             start=1
         ):
 
-            print(
-                f"  Rank {rank}: {doc_id}"
+            chunk = self.chunks_by_id.get(
+                doc_id
             )
 
-        # -------------------------------------------------------
+            if chunk:
+
+                print(
+                    f"  {rank}. "
+                    f"{doc_id} "
+                    f"| Article "
+                    f"{chunk['article_number']}"
+                )
+
+            else:
+
+                print(
+                    f"  {rank}. "
+                    f"{doc_id}"
+                )
+
+        # ----------------------------------------------------
         # Cross-reference expansion
-        # -------------------------------------------------------
+        # ----------------------------------------------------
 
         results = expand_with_references(
             top_ids,
             self.chunks_by_id,
             self.parents_by_id,
-            max_extra=max_extra_from_refs,
+            max_extra=max_extra_from_refs
         )
 
-        print("\n" + "=" * 70)
-        print("HYBRID SEARCH FINISHED")
+        # ----------------------------------------------------
+        # Final results
+        # ----------------------------------------------------
+
+        print()
         print("=" * 70)
+        print("FINAL RETRIEVAL RESULTS")
+        print("=" * 70)
+
+        for rank, result in enumerate(
+            results,
+            start=1
+        ):
+
+            article = result[
+                "article_number"
+            ]
+
+            source = result[
+                "source"
+            ]
+
+            print(
+                f"  {rank}. "
+                f"Article {article} "
+                f"| {source}"
+            )
+
+        print()
+        print("#" * 70)
+        print("RETRIEVAL COMPLETE")
+        print("#" * 70)
 
         return results
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
+# ============================================================
+# MAIN
+# ============================================================
 
 if __name__ == "__main__":
 
-    # ===========================================================
+    print()
+    print("#" * 70)
+    print("CONSTITUTION RAG RETRIEVER")
+    print("#" * 70)
+
+    # --------------------------------------------------------
     # Configuration
-    # ===========================================================
+    # --------------------------------------------------------
 
-    CHUNKS_PATH = r"data\processed\child_chunks.json"
-    PARENTS_PATH = r"data\processed\parent_chunks.json"
+    print()
+    print("CONFIGURATION")
+    print("-" * 70)
 
-    QUERY = (
-        "What does Article 25 say "
-        "about equality of citizens?"
+    print(f"Chunks path : {CHUNKS_PATH}")
+    print(f"Parents path: {PARENTS_PATH}")
+    print(f"Qdrant path : {QDRANT_PATH}")
+    print(f"Collection  : {COLLECTION}")
+    print(f"Query       : {QUERY}")
+    print(f"Top-K       : {TOP_K}")
+    print(f"BM25 only   : {BM25_ONLY}")
+    print(
+        f"Embedding   : "
+        f"{EMBEDDING_MODEL_NAME}"
     )
 
-    TOP_K = 5
+    # --------------------------------------------------------
+    # Load data
+    # --------------------------------------------------------
 
-    COLLECTION = "constitution_pk"
-
-    QDRANT_PATH = "qdrant_local"
-
-    BM25_ONLY = False
-
-    # ===========================================================
-    # Load child chunks
-    # ===========================================================
-
-    print("\n" + "#" * 70)
+    print()
+    print("=" * 70)
     print("LOADING DATA")
-    print("#" * 70)
+    print("=" * 70)
 
     with open(
         CHUNKS_PATH,
@@ -847,10 +1008,6 @@ if __name__ == "__main__":
         f"{len(child_chunks)}"
     )
 
-    # ===========================================================
-    # Load parent chunks
-    # ===========================================================
-
     with open(
         PARENTS_PATH,
         encoding="utf-8"
@@ -863,18 +1020,19 @@ if __name__ == "__main__":
         f"{len(parent_chunks)}"
     )
 
-    # ===========================================================
+    # --------------------------------------------------------
     # Initialize Qdrant + embedding model
-    # ===========================================================
+    # --------------------------------------------------------
 
     qdrant_client = None
     embedding_model = None
 
     if not BM25_ONLY:
 
-        print("\n" + "#" * 70)
-        print("LOADING DENSE SEARCH")
-        print("#" * 70)
+        print()
+        print("=" * 70)
+        print("INITIALIZING DENSE RETRIEVAL")
+        print("=" * 70)
 
         try:
 
@@ -882,8 +1040,7 @@ if __name__ == "__main__":
             from sentence_transformers import SentenceTransformer
 
             print(
-                f"Opening Qdrant: "
-                f"{QDRANT_PATH}"
+                "Connecting to local Qdrant..."
             )
 
             qdrant_client = QdrantClient(
@@ -891,53 +1048,47 @@ if __name__ == "__main__":
             )
 
             print(
-                f"Loading embedding model: "
-                f"{EMBEDDING_MODEL_NAME}"
+                "Loading embedding model..."
             )
 
-            embedding_model = SentenceTransformer(
-                EMBEDDING_MODEL_NAME
-            )
-
-            print(
-                f"Embedding dimension: "
-                f"{embedding_model.get_embedding_dimension()}"
-            )
-
-            collection_info = (
-                qdrant_client.get_collection(
-                    COLLECTION
+            embedding_model = (
+                SentenceTransformer(
+                    EMBEDDING_MODEL_NAME
                 )
             )
 
             print(
-                f"Qdrant collection: "
-                f"{COLLECTION}"
-            )
-
-            print(
-                f"Collection points: "
-                f"{collection_info.points_count}"
-            )
-
-            print(
-                "\nDense search ENABLED"
+                "Dense search enabled."
             )
 
         except ImportError as e:
 
             print(
-                f"Could not load dense search: "
-                f"{e}"
+                f"Could not load dense "
+                f"retrieval dependencies: {e}"
             )
 
             print(
-                "Falling back to BM25-only"
+                "Falling back to BM25-only."
             )
 
-    # ===========================================================
+            BM25_ONLY = True
+
+    else:
+
+        print()
+        print(
+            "BM25_ONLY = True"
+        )
+
+        print(
+            "Qdrant and embedding model "
+            "will not be loaded."
+        )
+
+    # --------------------------------------------------------
     # Create retriever
-    # ===========================================================
+    # --------------------------------------------------------
 
     retriever = HybridRetriever(
         child_chunks,
@@ -947,57 +1098,59 @@ if __name__ == "__main__":
         embedding_model=embedding_model,
     )
 
-    # ===========================================================
-    # Search
-    # ===========================================================
+    # --------------------------------------------------------
+    # Run retrieval
+    # --------------------------------------------------------
 
     results = retriever.search(
         QUERY,
         top_k=TOP_K
     )
 
-    # ===========================================================
-    # Final results
-    # ===========================================================
+    # --------------------------------------------------------
+    # Print actual text
+    # --------------------------------------------------------
 
-    print("\n" + "#" * 70)
-    print("FINAL RETRIEVAL RESULTS")
+    print()
+    print()
+    print("#" * 70)
+    print("RETRIEVED CONTEXT")
     print("#" * 70)
 
-    print(
-        f"\nResults for:\n{QUERY}\n"
-    )
+    if not results:
 
-    for rank, r in enumerate(
-        results,
-        start=1
-    ):
+        print("No results found.")
 
-        print(
-            f"\nResult #{rank}"
-        )
+    else:
 
-        print(
-            f"Source         : "
-            f"{r['source']}"
-        )
+        for i, result in enumerate(
+            results,
+            start=1
+        ):
 
-        print(
-            f"Article        : "
-            f"{r['article_number']}"
-        )
+            print()
+            print(
+                f"[{i}] "
+                f"Article "
+                f"{result['article_number']}"
+            )
 
-        print(
-            f"Chunk ID       : "
-            f"{r['chunk_id']}"
-        )
+            print(
+                f"Source: "
+                f"{result['source']}"
+            )
 
-        print(
-            f"Text           : "
-            f"{r['text'][:300]}..."
-        )
+            print("-" * 70)
 
-    print("\n" + "#" * 70)
+            text = result.get(
+                "text",
+                ""
+            )
+
+            print(text)
+
+    print()
+    print("#" * 70)
     print("DONE")
     print("#" * 70)
 

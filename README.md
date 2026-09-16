@@ -36,7 +36,8 @@ No proprietary APIs anywhere in the pipeline.
 - **Sequential-number clause splitting**: `(2)` is only treated as a real clause boundary if it's the Article's actual second clause — this avoids false splits on in-text citations like "under clause (2) of Article 8."
 - **Hybrid retrieval + RRF fusion**: BM25 catches exact-term/Article-number queries that don't need to be *semantically* similar; dense search catches paraphrased questions. Reciprocal Rank Fusion combines both rankings without having to pick one.
 - **Cross-reference expansion**: retrieval doesn't just return top-scoring chunks — it also pulls in Articles the top results explicitly reference, from the graph built in Section 2. Guaranteed complete legal context instead of hoping the embedding model surfaces it too.
-- **Citation grounding + refuse-if-unsure**: enforced in the system prompt and checked automatically (both a cheap regex-based check and, when available, RAGAS's faithfulness metric) — not just asserted.
+- **Citation grounding + refuse-if-unsure**: enforced in the system prompt and checked automatically (both a cheap regex-based check and, when available, RAGAS's faithfulness metric) not just asserted.
+- **Relevance guardrail, enforced before generation, not just prompted for:**:off-topic questions (weather, celebrities, anything outside the Constitution) are detected by retrieval itself a dense-search similarity floor plus BM25's overlap filtering and answered directly, without ever calling the LLM.
 
 ## Quickstart
 

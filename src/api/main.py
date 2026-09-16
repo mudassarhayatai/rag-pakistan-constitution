@@ -183,7 +183,7 @@ def query(request: QueryRequest):
 
     candidates = state.retriever.search(request.question, top_k=candidate_k)
     if not candidates:
-        raise HTTPException(status_code=404, detail="No relevant context found for this question")
+        raise HTTPException(status_code=404, detail="Please ask a question related to the Constitution of Pakistan.")
 
     if state.rerank_enabled:
         results = state.reranker.rerank(request.question, candidates, top_k=top_k)
