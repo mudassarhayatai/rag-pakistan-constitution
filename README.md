@@ -94,8 +94,8 @@ python run_eval.py --run-name hybrid_reranking --rerank --no-ragas
 ```
 rag-pakistan-constitution/
 ├── README.md
-├── docker-compose.yml
-├── Dockerfile
+├── config.yml
+├── .gitignore
 ├── requirements.txt
 ├── src/
 │   ├── ingestion/
@@ -110,6 +110,9 @@ rag-pakistan-constitution/
 │   │   └── generate.py           # citation-grounded prompt + Ollama client + faithfulness check
 │   └── api/
 │       └── main.py               # FastAPI serving layer
+│   └── frontend/
+│       └── api_client.py
+        └── app.py               # Streamlit frontend                  
 ├── eval/
 │   ├── golden_dataset.json
 │   ├── run_eval.py
@@ -122,15 +125,15 @@ rag-pakistan-constitution/
 ## Cost and staleness
 
 - **No per-query API cost** — everything runs locally. The real cost is compute: embedding/reranking latency and whatever you pay to host Ollama + Qdrant if this were deployed rather than run locally.
-- **Staleness**: this is a single, mostly-static legal document, but it isn't frozen — new amendments happen. The ingestion pipeline is fully idempotent (re-running `embed_and_index.py` upserts by stable chunk ID rather than duplicating), so refreshing the index after a new amendment Act is a matter of re-running the pipeline on an updated source PDF, not a special-cased migration.
+- **Staleness**: this is a single, mostly-static legal document, but it isn't frozen new amendments happen. The ingestion pipeline is fully idempotent (re-running `embed_and_index.py` upserts by stable chunk ID rather than duplicating), so refreshing the index after a new amendment Act is a matter of re-running the pipeline on an updated source PDF, not a special-cased migration.
 
 ## Known limitations
 
-- The eval golden dataset currently has 8 question/answer pairs — a starter set covering each question category (direct lookup, negation/exception, numeric, amendment-aware, out-of-scope), not the 50-100 needed for statistically meaningful numbers. Expanding it is the highest-priority next step.
+- The eval golden dataset currently has 5 question/answer pairs ,a starter set covering each question category (direct lookup, negation/exception, numeric, amendment-aware, out-of-scope), not the 50-100 needed for statistically meaningful numbers. Expanding it is the highest-priority next step.
 - Clause splitting handles top-level numbered clauses `(1)`, `(2)`, `(3)`; lettered sub-clauses `(a)`, `(b)` stay bundled within their parent clause rather than becoming separate chunks.
 - Cross-reference resolution matches `Article N` mentions; it doesn't yet resolve references to Schedules, Parts, or bare "this Chapter" phrasing.
 - Amendment-footnote parsing is calibrated against this specific PDF edition's formatting; a different source PDF would need the regex patterns in `parse_pdf.py` re-verified against its actual layout.
-- No automated re-indexing trigger yet — refreshing after a real amendment is a manual pipeline re-run, not an automated watch/trigger.
+- No automated re-indexing trigger yet refreshing after a real amendment is a manual pipeline re-run, not an automated watch/trigger.
 
 ## What I'd do with more time
 
@@ -138,3 +141,4 @@ rag-pakistan-constitution/
 - Extend clause splitting to lettered sub-clauses for finer-grained retrieval on long, list-heavy Articles
 - Extend cross-reference resolution to Schedules and Part-level references
 - Add an automated re-indexing trigger keyed to source-document checksum changes
+- Add memory element
