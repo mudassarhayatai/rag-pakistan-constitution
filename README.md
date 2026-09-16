@@ -12,7 +12,9 @@ Single-document RAG demos are common and usually shallow. This one leans into wh
 
 ## Architecture
 
-![System Architecture](docs\architecture.png)
+<p align="center">
+  <img src="docs/architecture.png" alt="System Architecture" width="300"/>
+</p>
 
 Served behind a FastAPI layer (`src/api/main.py`) with models loaded once at startup, not per-request.
 
@@ -25,7 +27,7 @@ Served behind a FastAPI layer (`src/api/main.py`) with models loaded once at sta
 | Keyword search | Hand-rolled BM25Okapi | No `rank_bm25` dependency demonstrates the algorithm, not just a library call |
 | Reranker | BAAI/bge-reranker-v2-m3 | Open-weight cross-encoder, meaningful precision gain over vector-only |
 | LLM | Qwen3.5 0.8B via Ollama | Fully local generation, no API keys |
-| Eval | RAGAS + a dependency-free tier-1 check | Currently not working - model issue |
+| Eval | RAGAS + a dependency-free tier-1 check | Ragas Currently not working - model issue |
 
 No proprietary APIs anywhere in the pipeline.
 
@@ -83,9 +85,9 @@ python run_eval.py --run-name hybrid_reranking --rerank --no-ragas
 
 | Run | Retrieval hit rate | Correct refusal rate | Citation faithfulness (basic) | RAGAS faithfulness | RAGAS answer relevancy |
 |---|---|---|---|---|---|
-| BM25-only | 0.4 | NA | 0.5 | Model issue | Model issue |
-| Hybrid (BM25 + dense) | 0.6 | NA | 0.7 | Model issue | Model issue |
-| Hybrid + reranking | 0.9 | NA | 0.9 | Model issue | Model issue |
+| BM25-only | 0.4 | 1.0 | 0.5 | Model issue | Model issue |
+| Hybrid (BM25 + dense) | 0.6 | 1.0 | 0.7 | Model issue | Model issue |
+| Hybrid + reranking | 0.9 | 1.0 | 0.9 | Model issue | Model issue |
 
 ## Repository structure
 
